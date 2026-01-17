@@ -1,0 +1,66 @@
+# ThriveBot Docker Compose Configuration
+# Supports both development and production environments
+
+version: '3.8'
+
+services:
+  thrivebot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: thrivebot
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Google Gemini
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # Slack Configuration
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      # RAG Configuration
+      - VECTOR_STORE_PATH=/app/data/vector_store
+      - DOCUMENTS_PATH=/app/data/documents
+      - CHUNK_SIZE=${CHUNK_SIZE:-500}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-50}
+      - TOP_K=${TOP_K:-5}
+      # Application Settings
+      - APP_ENV=${APP_ENV:-production}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Persist vector store and documents
+      - thrivebot-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - thrivebot-network
+
+  # Optional: Redis for caching (future enhancement)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: thrivebot-redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - thrivebot-network
+
+volumes:
+  thrivebot-data:
+    driver: local
+  # redis-data:
+  #   driver: local
+
+networks:
+  thrivebot-network:
+    driver: bridge
